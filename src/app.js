@@ -1,9 +1,11 @@
 let express = require('express')
 let bodyParser = require('body-parser')
+let cors = require('cors')
 let app = express()
 
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
+app.use(cors())
 
 const { Sequelize, Model, DataTypes } = require('sequelize');
 const sequelize = new Sequelize('toshokan_db', 'toshokan', 'toshokan', {
@@ -73,6 +75,8 @@ Book.sync()
 Category.sync()
 Sale.sync()
 
+app.options('*', cors())
+
 app.get('/', function (req, res) {
   res.send('<h1>Bem vindo ao backend do sistema Toshokan!</h1>')
 })
@@ -96,6 +100,16 @@ app.post('/users', function (req, res) {
   sequelize.sync()
   .then(() => User.create(user).then(data => {
     res.status(201).send('User created - ' + data)
+  }).catch(err => {
+    res.status(500).send('Error - ' + err)
+  }))
+})
+
+app.post('/users/login', function (req, res) {
+  let user = req.body
+  sequelize.sync()
+  .then(() => User.findOne({ where: { username: user.username, password: user.password } }).then(data => {
+    res.status(200).send(data.toJSON())
   }).catch(err => {
     res.status(500).send('Error - ' + err)
   }))
