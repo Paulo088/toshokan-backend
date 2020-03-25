@@ -1,11 +1,18 @@
-let express = require('express')
-let bodyParser = require('body-parser')
-let cors = require('cors')
+const express = require('express')
+const bodyParser = require('body-parser')
+const cors = require('cors')
+const fs = require('fs')
+const multer = require('multer')
+const { resolve, join } = require('path')
+const upload = multer()
+
 let app = express()
 
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 app.use(cors())
+
+const path_images = resolve(__dirname, '../', 'images')
 
 const { Sequelize, Model, DataTypes } = require('sequelize');
 const sequelize = new Sequelize('toshokan_db', 'toshokan', 'toshokan', {
@@ -40,7 +47,7 @@ Book.init(
     name: DataTypes.STRING,
     img: DataTypes.STRING,
     price: DataTypes.DOUBLE,
-    sinopse: DataTypes.STRING
+    sinopse: DataTypes.STRING(5000)
   }, { sequelize, modelName: 'books' }
 )
 
@@ -76,6 +83,28 @@ Category.sync()
 Sale.sync()
 
 app.options('*', cors())
+
+app.get('/download/images/:name', function(req, res, next) {
+	let { name } = req.params
+
+	fs.readFile(join(path_images, name), function(err, data) {
+		if (err) {
+			err.message = 'Erro ao ler o arquivo: ' + err.message
+			return next({ status: 500, err })
+		}
+		res.status(200).send(data)
+	})
+})
+
+app.post('/images/:name', upload.single('file'), function (req, res, next) {
+	let file = req.file
+	let { name } = req.params
+
+	fs.writeFile(join(path_images, name), file.buffer, 'binary', function (err) {
+		if (err) return next({ status: 500, err })
+		res.status(201).end()
+	})
+})
 
 app.get('/', function (req, res) {
   res.send('<h1>Bem vindo ao backend do sistema Toshokan!</h1>')
@@ -152,6 +181,7 @@ app.get('/books/:id', function (req, res) {
 
 app.post('/books', function (req, res) {
   let book = req.body
+  console.log(book)
   sequelize.sync()
   .then(() => Book.create(book).then(data => {
     res.status(201).send('Book created - ' + data)
